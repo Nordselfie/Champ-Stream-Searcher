@@ -6,8 +6,8 @@ import os
 import json
 import threading
 
-save_dir2 = os.path.join(os.path.expanduser("~"), "Desktop/API League")
-file_path2 = os.path.join(save_dir2, "streamer_accounts_2.json")
+script_dir = os.path.dirname(os.path.abspath(__file__))
+file_path = os.path.join(script_dir, "streamer_accounts.json")
 
 
 def log(text):
@@ -175,7 +175,7 @@ def onclick_thread():
         return
 
     try:
-        with open(file_path2, "r") as f:
+        with open(file_path, "r") as f:
             data = json.load(f)
     except Exception as error:
         log("Failed to load streamer account data: " + str(error))

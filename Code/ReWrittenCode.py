@@ -18,11 +18,8 @@ twitch_games_url = "https://api.twitch.tv/helix/games"
 twitch_streams_url = "https://api.twitch.tv/helix/streams"
 twitch_channel_url = "https://api.twitch.tv/helix/search/channels"
 
-save_dir = os.path.join(os.path.expanduser("~"), "Desktop/API League")
-file_path = os.path.join(save_dir, "streamer_accounts.json")
-
-save_dir2 = os.path.join(os.path.expanduser("~"), "Desktop/API League")
-file_path2 = os.path.join(save_dir2, "streamer_accounts_2.json")
+script_dir = os.path.dirname(os.path.abspath(__file__))
+file_path = os.path.join(script_dir, "streamer_accounts.json")
 
 tagsTable = {
     "leagueoflegends",
@@ -202,7 +199,7 @@ def get_player_champ(puuid, playerregion:str):
 
 def add_streamer_mapping_2(twitch_name, lol_name, region):
     try:
-        with open(file_path2, "r") as f:
+        with open(file_path, "r") as f:
             data = json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
         data = {}
@@ -222,8 +219,8 @@ def add_streamer_mapping_2(twitch_name, lol_name, region):
         data[twitch_key]["accounts"] = accounts
 
     try:
-        with open(file_path2, "w") as f:
+        with open(file_path, "w") as f:
             json.dump(data, f, indent=2)
         print(f"Mapped {twitch_name} to {lol_name} ({region})")
     except PermissionError:
-        print(f"Permission denied while writing to {file_path2}")
+        print(f"Permission denied while writing to {file_path}")
