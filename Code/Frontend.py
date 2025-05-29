@@ -1,7 +1,7 @@
 import tkinter
 from tkinter import scrolledtext
 import tkinter.font as tkfont
-import ReWrittenCode as Functions
+import Main as Functions
 import os
 import json
 import threading
