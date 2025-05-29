@@ -278,5 +278,73 @@
         "region": "KR"
       }
     ]
+  },
+  "humzh": {
+    "accounts": [
+      {
+        "name": "FREE PALESTINE#humzh",
+        "region": "NA1"
+      },
+      {
+        "name": "humzh#00000",
+        "region": "NA1"
+      },
+      {
+        "name": "UwU Kitten#humzh",
+        "region": "NA1"
+      },
+      {
+        "name": "humble#KR4",
+        "region": "EUW1"
+      },
+      {
+        "name": "SMD EUW#TRASH",
+        "region": "EUW1"
+      },
+      {
+        "name": "humzh#aura",
+        "region": "EUW1"
+      },
+      {
+        "name": "Brooklyn Prodigy#EUW",
+        "region": "EUW1"
+      },
+      {
+        "name": "BROOKLYN POOKIE#BEAR",
+        "region": "EUW1"
+      },
+      {
+        "name": "90 PAGES PDF #EUW",
+        "region": "EUW1"
+      },
+      {
+        "name": "RAT IS WASHED#EUW",
+        "region": "EUW1"
+      },
+      {
+        "name": "AHMAD THE ANIMAL#FINAL",
+        "region": "EUW1"
+      },
+      {
+        "name": "GETOFFMYDIK#EUW",
+        "region": "EUW1"
+      },
+      {
+        "name": "2970014283261152#KR1",
+        "region": "KR"
+      },
+      {
+        "name": "humzh#KR1",
+        "region": "KR"
+      },
+      {
+        "name": "humzh#yemen",
+        "region": "KR"
+      },
+      {
+        "name": "Korea C1 Draven#NA1",
+        "region": "NA1"
+      }
+    ]
   }
 }

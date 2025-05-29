@@ -36,11 +36,14 @@ regionList = {
         "la1",
         "la2",
         "kr",
-        "jp1",        
+        "jp1",
         # "europe",
         # "americas",
         # "asia"
 }
+
+# Create an async client for httpx - created once and reused
+async_client = httpx.AsyncClient(headers=riotheaders)
 
 
 def get_twitch_token():
@@ -73,7 +76,7 @@ def get_game_id(token):
             return TwitchIDdata[0]["id"]
     except Exception as e:
         print("Error twitch game id", e)
-        
+
 
 def get_account_region(region):
     mapping = {
@@ -87,7 +90,7 @@ def get_account_region(region):
         "la2": "americas",
         "kr": "asia",
         "jp1": "asia",
-        
+
         "europe": "europe",
         "americas": "americas",
         "asia": "asia"
@@ -107,7 +110,7 @@ def fix_region(region):
         "la2": "la2",
         "kr": "kr",
         "jp": "jp1",
-        
+
         "euw1": "euw1",
         "eun1": "eun1",
         "tr1": "tr1",
@@ -119,7 +122,7 @@ def fix_region(region):
         "kr": "kr",
         "jp1": "jp1",
     }
-    
+
     return mapping.get(region, "none")
 
 def get_champion(RequestedData:str, InputData):
@@ -142,20 +145,20 @@ def find_channel(streamername, token):
     response = requests.get(twitch_channel_url, headers=headers, params=params)
     response.raise_for_status()
     data = response.json().get("data", [])
-    
+
     for channel in data:
         if channel["broadcaster_login"] == streamername:
             return channel
     return "none"
-    
-    
+
+
 def get_streams(token, gameid):
     headers = {'Client-ID': clientid, 'Authorization': f'Bearer {token}'}
     params = {"game_id": gameid, "first": 100, "type": "live"} #Limit is 100, only get live streams.
     response = requests.get(twitch_streams_url, headers=headers, params=params)
     response.raise_for_status()
     data = response.json()["data"]
-    
+
     results = []
     if data:
         for stream in data:
@@ -164,38 +167,63 @@ def get_streams(token, gameid):
             TwitchUserid = stream["user_id"]
             results.append((streamername, title, TwitchUserid))
     return results
-        
-def riot_api_request(url, params):
-    response = requests.get(url, headers=riotheaders)
+
+# Asynchronous version of riot_api_request using httpx async_client
+async def async_riot_api_request(url):
+    # Use the globally defined async_client
+    response = await async_client.get(url)
     response.raise_for_status()
     data = response.json()
     if data:
         return data
+    return None # Return None if no data
 
-def get_puuid(riot_id, routingregion):
-
+# Asynchronous version of get_puuid
+async def async_get_puuid(riot_id, routingregion):
     account_region = get_account_region(routingregion)
-    #splitting the name and tagline
-    gamename, tagline = riot_id.split("#")
-    gamename = gamename.strip()
-    tagline = tagline.strip()
-    
-    url = f"https://{account_region}.api.riotgames.com/riot/account/v1/accounts/by-riot-id/{gamename}/{tagline}"
-    data = riot_api_request(url, None)
-    puuid = data.get("puuid")
-    return puuid
-    
+    try:
+        #splitting the name and tagline
+        gamename, tagline = riot_id.split("#")
+        gamename = gamename.strip()
+        tagline = tagline.strip()
+    except ValueError:
+        # Handle cases where riot_id doesn't contain '#'
+        # print(f"Invalid Riot ID format: {riot_id}") # Optional: log errors
+        return None
 
-def get_player_champ(puuid, playerregion:str):
+
+    url = f"https://{account_region}.api.riotgames.com/riot/account/v1/accounts/by-riot-id/{gamename}/{tagline}"
+    try:
+        data = await async_riot_api_request(url)
+        if data:
+            puuid = data.get("puuid")
+            return puuid
+        return None
+    except Exception as e:
+        # print(f"Error getting PUUID for {riot_id}: {e}") # Optional: log errors
+        return None
+
+# Asynchronous version of get_player_champ
+async def async_get_player_champ(puuid, playerregion:str):
     Fixedplayerregion = fix_region(playerregion.lower())
+    if Fixedplayerregion == "none":
+        # print(f"Invalid region for PUUID {puuid}: {playerregion}") # Optional: log errors
+        return None # Handle invalid region early
+
     url = f"https://{Fixedplayerregion}.api.riotgames.com/lol/spectator/v5/active-games/by-summoner/{puuid}"
-    data = riot_api_request(url, None)
-    
-    participants = data.get("participants", [])
-    for player in participants:
-        if player.get("puuid") == puuid:
-            return player.get("championId")   
-    
+    try:
+        data = await async_riot_api_request(url)
+        if data:
+            participants = data.get("participants", [])
+            for player in participants:
+                if player.get("puuid") == puuid:
+                    return player.get("championId")
+            return None # PUUID not found in game participants
+        return None # No active game data found
+    except Exception as e:
+        # print(f"Error getting player champ for PUUID {puuid}: {e}") # Optional: log errors
+        return None
+
 
 def add_streamer_mapping_2(twitch_name, lol_name, region):
     try:
@@ -224,3 +252,7 @@ def add_streamer_mapping_2(twitch_name, lol_name, region):
         print(f"Mapped {twitch_name} to {lol_name} ({region})")
     except PermissionError:
         print(f"Permission denied while writing to {file_path}")
+
+# Keep the original add_streamer_mapping for the manual mapping button
+def add_streamer_mapping(twitch_name, lol_name, region):
+    add_streamer_mapping_2(twitch_name, lol_name, region)

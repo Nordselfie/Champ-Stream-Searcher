@@ -5,9 +5,17 @@ import Main as Functions
 import os
 import json
 import threading
+import asyncio # Import asyncio
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 file_path = os.path.join(script_dir, "streamer_accounts.json")
+
+# Define a semaphore to limit concurrent API requests
+# The optimal value might require testing based on Riot's rate limits
+# Starting with a conservative value like 5 concurrent requests
+RIOT_API_SEMAPHORE = asyncio.Semaphore(5)
+# Define a small delay between requests within the semaphore context
+REQUEST_DELAY = 0.1 # seconds
 
 
 def log(text):
@@ -15,13 +23,13 @@ def log(text):
     output.insert(tkinter.END, text + '\n')
     output.configure(state='disabled')
     output.see(tkinter.END)
-    
+
 def draw_gradient(canvas, width, height, color1, color2):
     r1, g1, b1 = canvas.winfo_rgb(color1)
     r2, g2, b2 = canvas.winfo_rgb(color2)
 
     r_ratio = (r2 - r1) / height
-    g_ratio = (g2 - g1) / height
+    g_ratio = (g2 - g1) / height # Corrected: should be g2 - g1
     b_ratio = (b2 - b1) / height
 
     for i in range(height):
@@ -30,14 +38,14 @@ def draw_gradient(canvas, width, height, color1, color2):
         nb = int(b1 + (b_ratio * i))
         hex_color = f"#{nr >> 8:02x}{ng >> 8:02x}{nb >> 8:02x}"
         canvas.create_line(0, i, width, i, fill=hex_color)
-      
+
 def on_enter(e):
     e.widget['background'] = '#555555'
 
 def on_leave(e):
-    e.widget['background'] = '#222222'  
+    e.widget['background'] = '#222222'
 
-    
+
 root = tkinter.Tk()
 root.geometry("800x600")
 root.configure(background="#000000")
@@ -51,7 +59,7 @@ canvas.pack(fill="both", expand=True)
 canvas.pack()
 
 
-draw_gradient(canvas, width, height, "#000000", "#2c2c2c") 
+draw_gradient(canvas, width, height, "#000000", "#2c2c2c")
 
 canvas.create_text(
     width // 2, 60,
@@ -150,15 +158,50 @@ canvas.create_window(width // 2 + 250, y_pos + 40, window=Region)
 
 
 
-
-#_____________________________LOGIC_____________________________
+#_____________________________LOGIC_____________________________\
 
 TwitchToken = Functions.get_twitch_token()
 gameid = Functions.get_game_id(TwitchToken)
 # log(f"Twitch Token: {TwitchToken}")
 # log(f"GameID: {gameid}")
 
-def onclick_thread():
+# Helper async function to process a single streamer account with rate limiting
+async def process_streamer_account(streamer_info, target_champion_id):
+    streamername = streamer_info["streamername"]
+    summonername = streamer_info["summonername"]
+    region = streamer_info["region"]
+
+    puuid = None
+    # Acquire semaphore before making the API call
+    async with RIOT_API_SEMAPHORE:
+        # Add a small delay to space out requests
+        await asyncio.sleep(REQUEST_DELAY)
+        puuid = await Functions.async_get_puuid(summonername, region)
+
+    if puuid:
+        champion_id = None
+        # Acquire semaphore before making the API call
+        async with RIOT_API_SEMAPHORE:
+            # Add a small delay to space out requests
+            await asyncio.sleep(REQUEST_DELAY)
+            champion_id = await Functions.async_get_player_champ(puuid, region)
+
+        if champion_id is not None:
+            try:
+                ChampionInGameName = Functions.get_champion("ChampionName", champion_id)
+            except Exception as error:
+                log(f"Error converting champion key to name: {error}")
+                ChampionInGameName = str(champion_id)
+
+            if champion_id == target_champion_id:
+                log(f"Streamer: {streamername} ({summonername} - {region}) is currently playing: {ChampionInGameName}")
+                return True # Indicate that a streamer was found playing the champion
+
+    return False # Indicate that this streamer was not found or not playing the champion
+
+
+# Make onclick_thread an async function
+async def onclick_thread_async():
     ChampionText = champInsertion.get().strip()
     if not ChampionText:
         log("Please insert a champion name.")
@@ -181,51 +224,36 @@ def onclick_thread():
         log("Failed to load streamer account data: " + str(error))
         return
 
-
     found_any = False
+    processing_tasks = []
 
+    # Prepare tasks for concurrent execution using the helper function
     for player, info in data.items():
         accounts = info.get("accounts", [])
         for account in accounts:
-            streamername = player
-            summonername = account.get("name")
-            region = account.get("region")
+            streamer_info = {"streamername": player, "summonername": account.get("name"), "region": account.get("region")}
+            if streamer_info["summonername"] and streamer_info["region"]:
+                processing_tasks.append(process_streamer_account(streamer_info, championId))
 
-            try:
-                puuid = Functions.get_puuid(summonername, region)
-            except Exception:
-                continue
+    # Run processing tasks concurrently, limited by the semaphore
+    results = await asyncio.gather(*processing_tasks)
 
-            try:
-                ChampionInGame = Functions.get_player_champ(puuid, region)
-            except Exception:
-                continue
-
-            if ChampionInGame:
-                try:
-                    ChampionInGameName = Functions.get_champion("ChampionName", ChampionInGame)
-                except Exception as error:
-                    log(f"Error converting champion key to name: {error}")
-                    ChampionInGameName = str(ChampionInGame)
-
-                if ChampionInGame == championId:
-                    log(f"Streamer: {streamername} is currently playing: {ChampionInGameName}")
-                    found_any = True
+    # Check if any task returned True (meaning a streamer was found playing the champion)
+    if any(results):
+        found_any = True
 
     if not found_any:
         log(f"No streamers are currently playing {ChampionText}.")
 
 
+# Modify onclick to run the async function
 def onclick():
-    threading.Thread(target=onclick_thread, daemon=True).start()
+    # Use asyncio.run to run the top-level async function in a new event loop
+    threading.Thread(target=lambda: asyncio.run(onclick_thread_async()), daemon=True).start()
 
 
-
-                    
-                
-        
-
-def onclickMap_thread():
+# Modify onclickMap_thread to be async and use the semaphore
+async def onclickMap_thread_async():
     twitchname = TwitchName.get().strip()
     riotname = RiotId.get().strip()
     region = Region.get().strip().lower()
@@ -233,15 +261,18 @@ def onclickMap_thread():
     FoundTwitchProof = False
     FoundRiotProof = False
 
+    # Twitch check (synchronous)
     ChannelData = Functions.find_channel(twitchname, TwitchToken)
     if ChannelData != "none":
         channelLogin = ChannelData["broadcaster_login"]
-        for tag in ChannelData["tags"]:
-            if tag.lower() in Functions.tagsTable:
-                FoundTwitchProof = True
-                log(f"Found Proof for streamer: {channelLogin} via tags")
+        # Check if 'tags' key exists and is not None before iterating
+        if 'tags' in ChannelData and ChannelData['tags'] is not None:
+            for tag in ChannelData["tags"]:
+                if tag.lower() in Functions.tagsTable:
+                    FoundTwitchProof = True
+                    log(f"Found Proof for streamer: {channelLogin} via tags")
 
-        if ChannelData["game_id"] == gameid:
+        if ChannelData.get("game_id") == gameid: # Use .get() for safety
             FoundTwitchProof = True
             log(f"Found proof for streamer {channelLogin} via live/recent games played")
 
@@ -253,7 +284,15 @@ def onclickMap_thread():
     log(f"Changed region from {region} to {newRegion}")
     routingregion = Functions.get_account_region(newRegion)
 
-    playerpuuid = Functions.get_puuid(riotname, routingregion)
+    # Riot check (asynchronous with semaphore)
+    playerpuuid = None
+    # Acquire semaphore before making the API call
+    async with RIOT_API_SEMAPHORE:
+        # Add a small delay to space out requests
+        await asyncio.sleep(REQUEST_DELAY)
+        playerpuuid = await Functions.async_get_puuid(riotname, routingregion)
+
+
     if playerpuuid:
         FoundRiotProof = True
         log(f"Found Proof for Riot account: {riotname}")
@@ -261,18 +300,19 @@ def onclickMap_thread():
     if FoundTwitchProof and FoundRiotProof:
         Functions.add_streamer_mapping(twitchname, riotname, newRegion)
         log(f"Streamer successfully mapped twitch name: {twitchname}, riot name: {riotname}, region: {newRegion}")
+    else:
+        log("Could not verify both Twitch and Riot accounts. Mapping not added.")
 
 
+# Modify onclickMap to run the async function
 def onclickMap():
-    threading.Thread(target=onclickMap_thread, daemon=True).start()
-
-        
-    
+    # Use asyncio.run to run the top-level async function in a new event loop
+    threading.Thread(target=lambda: asyncio.run(onclickMap_thread_async()), daemon=True).start()
 
 
 #Delay the creation of the buttons so we connect it with the functions.
 button = tkinter.Button(
-    root, 
+    root,
     text="Check Streamers",
     bg="#222222",
     fg="#FFFFFF",
@@ -284,7 +324,7 @@ button = tkinter.Button(
     highlightthickness=0,
     padx=10,
     pady=5,
-    command=onclick
+    command=onclick # This now calls the wrapper that runs the async function
 )
 
 button.bind("<Enter>", on_enter)
@@ -294,7 +334,7 @@ canvas.create_window(width // 2, 180, window=button)
 
 
 mapbutton = tkinter.Button(
-    root, 
+    root,
     text="Map Streamer",
     bg="#222222",
     fg="#FFFFFF",
@@ -306,7 +346,7 @@ mapbutton = tkinter.Button(
     highlightthickness=0,
     padx=10,
     pady=5,
-    command=onclickMap
+    command=onclickMap # This still calls the threaded function
 )
 
 mapbutton.bind("<Enter>", on_enter)
