@@ -3,12 +3,17 @@ import json
 import requests
 import httpx
 import asyncio
+script_dir = os.path.dirname(os.path.abspath(__file__))
+secretsFolder = os.path.join(script_dir, "secrets.json")
 
 
-apikey = "RGAPI-5dc04048-0649-47e0-aebd-7b09494fb66b"
 
-clientid = "517c3ntwdxwoecr1occ23sc69squgs"
-clientsecret = 'av89cq9fr7byb13z40d01o3ap9cosi'
+def loadsecrets():
+    with open(secretsFolder, "r") as file:
+        data = json.load(file)
+        return data["apikey"], data["clientid"], data["clientsecret"]
+
+apikey, clientid, clientsecret = loadsecrets()
 
 riotheaders = {"X-Riot-Token": apikey}
 ChampID_url = "https://ddragon.leagueoflegends.com/cdn/15.5.1/data/en_US/champion.json"
@@ -18,7 +23,6 @@ twitch_games_url = "https://api.twitch.tv/helix/games"
 twitch_streams_url = "https://api.twitch.tv/helix/streams"
 twitch_channel_url = "https://api.twitch.tv/helix/search/channels"
 
-script_dir = os.path.dirname(os.path.abspath(__file__))
 file_path = os.path.join(script_dir, "streamer_accounts.json")
 
 tagsTable = {
