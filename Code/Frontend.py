@@ -7,12 +7,9 @@ import json
 import threading
 import asyncio
 
-script_dir = os.path.dirname(os.path.abspath(__file__))
-file_path = os.path.join(script_dir, "streamer_accounts.json")
 
 RIOT_API_SEMAPHORE = asyncio.Semaphore(5)
 REQUEST_DELAY = 0.1 # seconds
-
 
 def log(text):
     output.configure(state='normal')
