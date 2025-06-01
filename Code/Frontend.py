@@ -5,16 +5,12 @@ import Main as Functions
 import os
 import json
 import threading
-import asyncio # Import asyncio
+import asyncio
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 file_path = os.path.join(script_dir, "streamer_accounts.json")
 
-# Define a semaphore to limit concurrent API requests
-# The optimal value might require testing based on Riot's rate limits
-# Starting with a conservative value like 5 concurrent requests
 RIOT_API_SEMAPHORE = asyncio.Semaphore(5)
-# Define a small delay between requests within the semaphore context
 REQUEST_DELAY = 0.1 # seconds
 
 
@@ -159,7 +155,7 @@ canvas.create_window(width // 2 + 250, y_pos + 40, window=Region)
 
 
 #_____________________________LOGIC_____________________________\
-
+data = Functions.GetStreamerJson()
 TwitchToken = Functions.get_twitch_token()
 gameid = Functions.get_game_id(TwitchToken)
 # log(f"Twitch Token: {TwitchToken}")
@@ -215,13 +211,6 @@ async def onclick_thread_async():
         log("Champion key: " + str(championId))
     except Exception as error:
         log("Error with getting champion key. Error: " + str(error))
-        return
-
-    try:
-        with open(file_path, "r") as f:
-            data = json.load(f)
-    except Exception as error:
-        log("Failed to load streamer account data: " + str(error))
         return
 
     found_any = False
