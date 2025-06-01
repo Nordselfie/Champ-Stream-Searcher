@@ -3,10 +3,9 @@ import json
 import requests
 import httpx
 import asyncio
+
 script_dir = os.path.dirname(os.path.abspath(__file__))
 secretsFolder = os.path.join(script_dir, "secrets.json")
-
-
 
 def loadsecrets():
     with open(secretsFolder, "r") as file:
