@@ -38,7 +38,7 @@ for element in account_elements:
             
             
             fixedregion = MainC.fix_region(region)
-            MainC.add_streamer_mapping_2(streamername, name, fixedregion)
+            MainC.add_streamer_mapping(streamername, name, fixedregion)
             
             accounts.append({
                 'name': gamename,
