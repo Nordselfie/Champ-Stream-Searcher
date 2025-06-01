@@ -11,9 +11,9 @@ secretsFolder = os.path.join(script_dir, "secrets.json")
 def loadsecrets():
     with open(secretsFolder, "r") as file:
         data = json.load(file)
-        return data["apikey"], data["clientid"], data["clientsecret"]
+        return data["apikey"], data["clientid"], data["clientsecret"], data["JSONURL"], data["JSONID"]
 
-apikey, clientid, clientsecret = loadsecrets()
+apikey, clientid, clientsecret, StreamerJSON, StreamerJSONID = loadsecrets()
 
 riotheaders = {"X-Riot-Token": apikey}
 ChampID_url = "https://ddragon.leagueoflegends.com/cdn/15.5.1/data/en_US/champion.json"
@@ -228,8 +228,23 @@ async def async_get_player_champ(puuid, playerregion:str):
         # print(f"Error getting player champ for PUUID {puuid}: {e}") # Optional: log errors
         return None
 
+def GetStreamerJson():
+    url = f"https://jsonblob.com/api/jsonBlob/{StreamerJSONID}"
+    try:
+        response = requests.get(url)
+        if response.status_code == 200:
+            data = response.json()
+            return data
+        else:
+            print("Failed to get streamers json file, error code: " + str(response.status_code))
+            return None
+    except requests.RequestException as e:
+        print("Request failed:", e)
+        return None
+    
 
-def add_streamer_mapping_2(twitch_name, lol_name, region):
+
+def add_streamer_mapping(twitch_name, lol_name, region):
     try:
         with open(file_path, "r") as f:
             data = json.load(f)
@@ -256,7 +271,3 @@ def add_streamer_mapping_2(twitch_name, lol_name, region):
         print(f"Mapped {twitch_name} to {lol_name} ({region})")
     except PermissionError:
         print(f"Permission denied while writing to {file_path}")
-
-# Keep the original add_streamer_mapping for the manual mapping button
-def add_streamer_mapping(twitch_name, lol_name, region):
-    add_streamer_mapping_2(twitch_name, lol_name, region)
